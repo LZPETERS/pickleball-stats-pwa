@@ -1,0 +1,11 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* simple modern base */
+@layer base {
+  html, body, #root { height: 100%; }
+  body {
+    @apply text-slate-100 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 antialiased;
+  }
+}

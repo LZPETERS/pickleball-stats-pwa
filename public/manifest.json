@@ -1,0 +1,17 @@
+{
+  "name": "PB Stats",
+  "short_name": "PB Stats",
+  "description": "Pickleball game and fault tracker",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f1b37",
+  "theme_color": "#0f1b37",
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
