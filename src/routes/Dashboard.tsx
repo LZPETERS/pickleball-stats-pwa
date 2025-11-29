@@ -1,4 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { supabase } from "../lib/supabase";
 
 type FaultKey = "serve" | "return" | "net" | "long" | "setup";
@@ -186,6 +196,47 @@ export default function Dashboard() {
       setup: g.setup_kill ?? 0,
     };
   }
+
+  const faultTrendData = useMemo(() => {
+    if (games.length === 0) return [];
+
+    const totals = { serve: 0, return: 0, net: 0, long: 0, setup: 0 };
+
+    return [...games]
+      .sort(
+        (a, b) =>
+          new Date(a.played_at).getTime() - new Date(b.played_at).getTime()
+      )
+      .map((g, idx) => {
+        const f = rowFaults(g);
+
+        totals.serve += f.serve;
+        totals.return += f.return;
+        totals.net += f.net;
+        totals.long += f.long;
+        totals.setup += f.setup;
+
+        const gameNumber = idx + 1;
+        const totalFaults =
+          totals.serve + totals.return + totals.net + totals.long + totals.setup;
+
+        const d = new Date(g.played_at);
+        const label = d.toLocaleDateString(undefined, {
+          month: "short",
+          day: "numeric",
+        });
+
+        return {
+          label,
+          serve: totals.serve / gameNumber,
+          return: totals.return / gameNumber,
+          net: totals.net / gameNumber,
+          long: totals.long / gameNumber,
+          setup: totals.setup / gameNumber,
+          total: totalFaults / gameNumber,
+        };
+      });
+  }, [games]);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50">
@@ -401,6 +452,56 @@ export default function Dashboard() {
             </div>
           </section>
         </div>
+
+        {/* Fault averages over time */}
+        <section className="rounded-2xl bg-slate-900/80 border border-slate-800/80 p-5 space-y-3">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <h2 className="text-lg font-semibold">Fault averages</h2>
+              <p className="text-xs text-slate-400">
+                Cumulative averages per game. Hover to see exact values.
+              </p>
+            </div>
+            <div className="text-xs text-slate-400">
+              {games.length === 0
+                ? "No games yet"
+                : `${games.length} game${games.length === 1 ? "" : "s"} logged`}
+            </div>
+          </div>
+
+          {faultTrendData.length === 0 ? (
+            <p className="text-sm text-slate-400">
+              Log a game to start seeing your fault trends.
+            </p>
+          ) : (
+            <div className="h-72 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={faultTrendData} margin={{ left: -20, right: 10 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.25)" />
+                  <XAxis dataKey="label" stroke="#cbd5e1" fontSize={12} tickLine={false} />
+                  <YAxis
+                    stroke="#cbd5e1"
+                    fontSize={12}
+                    allowDecimals={false}
+                    tickLine={false}
+                    label={{ value: "Avg faults", angle: -90, position: "insideLeft", fill: "#cbd5e1", fontSize: 12 }}
+                  />
+                  <Tooltip
+                    contentStyle={{ background: "#0f172a", border: "1px solid #1e293b", color: "#e2e8f0" }}
+                    labelStyle={{ color: "#e2e8f0" }}
+                  />
+                  <Legend iconType="circle" formatter={(value) => <span className="text-slate-100 text-xs">{value}</span>} />
+                  <Line type="monotone" dataKey="total" name="Total" stroke="#38bdf8" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="serve" name="Serve" stroke="#c084fc" strokeWidth={1.5} dot={false} />
+                  <Line type="monotone" dataKey="return" name="Return" stroke="#f472b6" strokeWidth={1.5} dot={false} />
+                  <Line type="monotone" dataKey="net" name="Net" stroke="#22d3ee" strokeWidth={1.5} dot={false} />
+                  <Line type="monotone" dataKey="long" name="Long" stroke="#f59e0b" strokeWidth={1.5} dot={false} />
+                  <Line type="monotone" dataKey="setup" name="Setup" stroke="#34d399" strokeWidth={1.5} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </section>
 
         {/* Recent games list */}
         <section className="rounded-2xl bg-slate-900/80 border border-slate-800/80 p-5 space-y-3">
