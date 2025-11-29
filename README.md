@@ -1,73 +1,78 @@
-# React + TypeScript + Vite
+# Pickleball Stats PWA
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A lightweight progressive web app for logging pickleball games, tracking fault categories, and seeing recent results. The app uses Supabase for authentication and persistence and is built with React, TypeScript, Vite, Tailwind CSS, and TanStack Query.
 
-Currently, two official plugins are available:
+## Features
+- Email/password authentication with Supabase, including sign up and password reset flows.
+- Quick game capture with date, time, location, and score entry.
+- Fault tracker for serve, return, net, long, and setup/kill mistakes with an easy tap-to-edit modal.
+- Recent games table limited to the signed-in user, powered by TanStack Query and Supabase row-level filters.
+- Mobile-friendly, dark UI styled with Tailwind CSS.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Tech stack
+- **Framework**: React 19 + TypeScript with Vite.
+- **State/data**: @tanstack/react-query for Supabase reads, React state for in-progress game edits.
+- **Styling**: Tailwind CSS with gradient backgrounds and glassmorphism-inspired cards.
+- **Auth & DB**: Supabase hosted Postgres with RLS.
 
-## React Compiler
+## Prerequisites
+- Node.js 18+ (Node 20 recommended)
+- npm
+- A Supabase project with email/password auth enabled
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Local setup
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
+2. Create a `.env` file in the project root with your Supabase credentials:
+   ```bash
+   VITE_SUPABASE_URL="https://YOUR-PROJECT.supabase.co"
+   VITE_SUPABASE_ANON_KEY="YOUR_ANON_PUBLIC_KEY"
+   ```
+3. Start the dev server:
+   ```bash
+   npm run dev
+   ```
+   The app defaults to http://localhost:5174.
 
-## Expanding the ESLint configuration
+## Supabase schema
+Create a `games` table that records per-user results and fault counts. One example schema:
+```sql
+create table public.games (
+  id bigint generated always as identity primary key,
+  user_id uuid references auth.users not null,
+  played_at timestamptz not null,
+  my_points int not null,
+  opp_points int not null,
+  location text,
+  serve_faults int not null default 0,
+  return_faults int not null default 0,
+  into_net int not null default 0,
+  too_long int not null default 0,
+  setup_kill int not null default 0
+);
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+alter table public.games enable row level security;
+create policy "Users can manage their games" on public.games
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 ```
+The app queries and inserts the columns above; adjust names here and in `src/routes/Dashboard.tsx` if you change them.
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Available scripts
+- `npm run dev` – start Vite in dev mode.
+- `npm run build` – type-check and build the production bundle.
+- `npm run preview` – serve the built app locally.
+- `npm run lint` – run ESLint over the project.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Project structure
+- `src/main.tsx` – app bootstrap with router and React Query provider.
+- `src/routes/SignIn.tsx` – sign-in/sign-up UI plus password reset request.
+- `src/routes/Dashboard.tsx` – game entry form, fault tracker, and recent games list.
+- `src/routes/Reset.tsx` – password update flow after Supabase reset link.
+- `src/lib/supabase.ts` – Supabase client wired to Vite env vars.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## Deployment tips
+- Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in your hosting provider’s environment variables.
+- Ensure RLS policies allow the authenticated user to read/write their rows (see schema above).
+- Because `persistSession` is enabled in the Supabase client, refresh tokens will keep users signed in across visits.
